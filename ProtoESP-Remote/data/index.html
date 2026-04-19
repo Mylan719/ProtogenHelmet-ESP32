@@ -11,8 +11,8 @@
         <h1>ProtoESP Remote</h1>
         <div class="config">
           <div style="color:lightgray">
-            <p>Animations for buttons show only when connected to ProtoESP BLE.</p>
-            <p>Available BLE devices (+animations) show after 6s after page load.</p>
+            <p>Assignable actions (emotions + capabilities) show only when connected to ProtoESP BLE.</p>
+            <p>Available BLE devices (+actions) show after 6s after page load.</p>
           </div>
           <form action="./saveconfig" method="get">
             <i><label>Button <sup onclick="alert('1st left top, 2nd top right, 3rd Dpad top... etc')">&#9432;</sup></label></i>
@@ -152,16 +152,20 @@
 </style>
 
 <script>
-	function fillSelect(id,val) {
-		var select, option;
-		select = document.getElementById(id);
-		option = document.createElement('option');
-		option.value = option.text = val;
+  function ensureOption(select,val,text) {
+    for (let i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === val) {
+        return;
+      }
+    }
+		const option = document.createElement('option');
+		option.value = val;
+    option.text = text || val;
 		select.add(option);
 	}
   
   let BLEnameload = "nope";
-  let animloaded = false;
+  let animLoaded = false;
   
   function loadBLE() {
 		xmlhttp=new XMLHttpRequest();
@@ -172,7 +176,7 @@
 				var partsArray = xmlhttp.responseText.split(',');
 				var arrayLength = partsArray.length;
 				for (var i = 0; i < arrayLength; i++) {
-					fillSelect("BLE",partsArray[i]);
+          ensureOption(document.getElementById("BLE"),partsArray[i]);
 				}
         document.getElementsByName("BLE")[0].value = BLEnameload;
         if(animLoaded == false) {
@@ -201,24 +205,48 @@
 	}
   scanBLE();
 
+  function rebuildSelect(selectId, emotions, capabilities) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = "";
+    ensureOption(select, "default", "default");
+
+    const emotionsGroup = document.createElement("optgroup");
+    emotionsGroup.label = "Emotions";
+    emotions.forEach((emotion) => {
+      const option = document.createElement("option");
+      option.value = emotion;
+      option.text = emotion;
+      emotionsGroup.appendChild(option);
+    });
+    select.appendChild(emotionsGroup);
+
+    if (capabilities.length > 0) {
+      const capsGroup = document.createElement("optgroup");
+      capsGroup.label = "Capabilities";
+      capabilities.forEach((capability) => {
+        const option = document.createElement("option");
+        option.value = "cap:" + capability;
+        option.text = capability;
+        capsGroup.appendChild(option);
+      });
+      select.appendChild(capsGroup);
+    }
+  }
+
 	function loadAnims() {
 		xmlhttp=new XMLHttpRequest();
 		xmlhttp.onreadystatechange=function() {
 			if (xmlhttp.readyState==4 && xmlhttp.status==200) {
-				var partsArray = xmlhttp.responseText.split(';');
-				partsArray.pop();
-				var arrayLength = partsArray.length;
-				for (var i = 0; i < arrayLength; i++) {
-          for (var x = 1; x < 8; x++) {
-            fillSelect(x+10,partsArray[i]);
-            fillSelect(x+20,partsArray[i]);
-            fillSelect(x+30,partsArray[i]);
-          }
-          console.log("set true");
-          animLoaded = true;
-				}
+        const response = JSON.parse(xmlhttp.responseText);
+        const emotions = response.emotions || [];
+        const capabilities = response.capabilities || [];
+        for (let x = 1; x < 8; x++) {
+          rebuildSelect(x+10, emotions, capabilities);
+          rebuildSelect(x+20, emotions, capabilities);
+          rebuildSelect(x+30, emotions, capabilities);
+        }
+        animLoaded = true;
 			} else {
-        console.log("set false");
         animLoaded = false;
       }
 		}
@@ -230,6 +258,9 @@
   function loadIntoInputs(jsonobj) {
         var obj = JSON.parse(jsonobj);
 				for (var x = 1; x < 8; x++) {
+          ensureOption(document.getElementById(x+10), obj[x+10]);
+          ensureOption(document.getElementById(x+20), obj[x+20]);
+          ensureOption(document.getElementById(x+30), obj[x+30]);
           document.getElementById(x+10).value = obj[x+10];
           document.getElementById(x+20).value = obj[x+20];
           document.getElementById(x+30).value = obj[x+30];

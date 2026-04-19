@@ -330,6 +330,30 @@ bool loadAnim(String anim, String temp) {
 BLEServer *pServer = NULL;
 BLECharacteristic * pCharacteristic;
 BLEAdvertising* pAdvertising;
+const int capabilityCount = 4;
+const char* capabilities[capabilityCount] = {
+  "brightness-up",
+  "brightness-down",
+  "ear-brightness-up",
+  "ear-brightness-down"
+};
+
+void applyCapability(const String& capability) {
+  const int brightnessStep = 10;
+  if (capability == "brightness-up") {
+    cfg.bVisor += brightnessStep;
+    if (cfg.bVisor > 255) cfg.bVisor = 255;
+  } else if (capability == "brightness-down") {
+    cfg.bVisor -= brightnessStep;
+    if (cfg.bVisor < 1) cfg.bVisor = 1;
+  } else if (capability == "ear-brightness-up") {
+    cfg.bEar += brightnessStep;
+    if (cfg.bEar > 255) cfg.bEar = 255;
+  } else if (capability == "ear-brightness-down") {
+    cfg.bEar -= brightnessStep;
+    if (cfg.bEar < 1) cfg.bEar = 1;
+  }
+}
 
 class MyCallbacks: public NimBLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
@@ -337,6 +361,29 @@ class MyCallbacks: public NimBLECharacteristicCallbacks {
       if(temp.charAt(0) == 'g') { //legacy remote reasons
         pCharacteristic->setValue("i"+String(totalAnims));
         pCharacteristic->notify();
+      } else if (temp == "?all") {
+        String list;
+        for(int i = 0; i < totalAnims; i++) {
+          list += "E:";
+          list += availAnims[i].substring(0, availAnims[i].length() - 5);
+          list += ";";
+        }
+        for(int i = 0; i < capabilityCount; i++) {
+          list += "C:";
+          list += capabilities[i];
+          list += ";";
+        }
+        pCharacteristic->setValue(list);
+        pCharacteristic->notify(true);
+      } else if (temp == "?cap") {
+        String list;
+        for(int i = 0; i < capabilityCount; i++) {
+          list += "C:";
+          list += capabilities[i];
+          list += ";";
+        }
+        pCharacteristic->setValue(list);
+        pCharacteristic->notify(true);
       } else if (temp.charAt(0) == '?') {
         String animtemp;
         for(int i = 0; i < totalAnims; i++) {
@@ -352,6 +399,9 @@ class MyCallbacks: public NimBLECharacteristicCallbacks {
             visorNow->type = 0;
           if(cfg.oledEna && oledInitDone)
             oled.writeRGB(vTAcro[visorNow->type]);
+        } else if (temp.indexOf("cap:") > 0) {
+          temp.remove(0, 5);
+          applyCapability(temp);
         } else if (temp.indexOf("set") > 0) {
           temp.remove(0,4);
           if(cfg.oledEna && oledInitDone)

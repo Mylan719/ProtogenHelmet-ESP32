@@ -68,6 +68,36 @@ String foundDevices = "", BLE = "ProtoESP";
 int connectTry = 0, functionBtn = -1, animSet = 0, sleepTime = 600;
 unsigned long check0button = 0, lastBlink = 0, wifiblechk = 0, toSleep = 0;
 
+void parseAssignableResponse(const String& response, String& emotions, String& capabilities) {
+  emotions = "";
+  capabilities = "";
+  int start = 0;
+  while (start < response.length()) {
+    int end = response.indexOf(';', start);
+    if (end == -1) {
+      end = response.length();
+    }
+    String token = response.substring(start, end);
+    token.trim();
+    if (token.length() > 0) {
+      if (token.startsWith("E:")) {
+        String value = token.substring(2);
+        if (value.length() > 0) {
+          emotions += value + ";";
+        }
+      } else if (token.startsWith("C:")) {
+        String value = token.substring(2);
+        if (value.length() > 0) {
+          capabilities += value + ";";
+        }
+      } else {
+        emotions += token + ";";
+      }
+    }
+    start = end + 1;
+  }
+}
+
 // BLE Scan callback, get a comma-separated list of found devices and check for valid one to connect to
 class ScanCallbacks : public NimBLEScanCallbacks {
     void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override {
@@ -212,14 +242,59 @@ void startWiFiWeb() {
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
   server.on("/getanims", HTTP_GET, [](AsyncWebServerRequest *request){ //all availble anims
-    String temp;
+    JsonDocument doc;
     if(connected && pRemoteCharacteristic->canWrite() && pRemoteCharacteristic->canRead()) {
-      pRemoteCharacteristic->writeValue("?");
-      Serial.println("[I] BT: Sent ?");
+      pRemoteCharacteristic->writeValue("?all");
+      Serial.println("[I] BT: Sent ?all");
       delay(100);
       String response = pRemoteCharacteristic->readValue().c_str();
       Serial.println("[I] BT: Received: " + response);
-      request->send(200, "text/plain", response);
+      String emotions = "", capabilities = "";
+      parseAssignableResponse(response, emotions, capabilities);
+
+      // fallback for servers with only dedicated capabilities command
+      if (capabilities.length() == 0) {
+        pRemoteCharacteristic->writeValue("?cap");
+        Serial.println("[I] BT: Sent ?cap");
+        delay(100);
+        String capResponse = pRemoteCharacteristic->readValue().c_str();
+        Serial.println("[I] BT: Received: " + capResponse);
+        String ignoredEmotions = "";
+        parseAssignableResponse(capResponse, ignoredEmotions, capabilities);
+      }
+
+      JsonArray emotionsArray = doc["emotions"].to<JsonArray>();
+      JsonArray capabilitiesArray = doc["capabilities"].to<JsonArray>();
+      int start = 0;
+      while (start < emotions.length()) {
+        int end = emotions.indexOf(';', start);
+        if (end == -1) {
+          end = emotions.length();
+        }
+        String value = emotions.substring(start, end);
+        value.trim();
+        if (value.length() > 0) {
+          emotionsArray.add(value);
+        }
+        start = end + 1;
+      }
+      start = 0;
+      while (start < capabilities.length()) {
+        int end = capabilities.indexOf(';', start);
+        if (end == -1) {
+          end = capabilities.length();
+        }
+        String value = capabilities.substring(start, end);
+        value.trim();
+        if (value.length() > 0) {
+          capabilitiesArray.add(value);
+        }
+        start = end + 1;
+      }
+
+      String jsonResponse;
+      serializeJson(doc, jsonResponse);
+      request->send(200, "application/json", jsonResponse);
     } else {
       request->send(503);
     }
@@ -386,7 +461,11 @@ void loop() {
             Serial.println("[I] BT: Sent: ;rgb");
           } else { //if not rgb button -> send anim
             if (pRemoteCharacteristic->canWrite()) {
-              pRemoteCharacteristic->writeValue(btnAnims[animSet][i]);
+              if (btnAnims[animSet][i].startsWith("cap:")) {
+                pRemoteCharacteristic->writeValue(";"+btnAnims[animSet][i]);
+              } else {
+                pRemoteCharacteristic->writeValue(btnAnims[animSet][i]);
+              }
               Serial.print("[I] BT: Sent: ");
               Serial.println(btnAnims[animSet][i]);
             }

@@ -65,7 +65,7 @@ NimBLEClient* pClient;
 
 bool doConnect = false,connected = false,buttonPressed = false;
 String foundDevices = "", BLE = "ProtoESP";
-int connectTry = 0, functionBtn = -1, animSet = 0, sleepTime = 600;
+int connectTry = 0, functionBtn = -1, cycleSetBtn = -1, animSet = 0, sleepTime = 600;
 unsigned long check0button = 0, lastBlink = 0, wifiblechk = 0, toSleep = 0;
 
 // BLE Scan callback, get a comma-separated list of found devices and check for valid one to connect to
@@ -151,6 +151,7 @@ bool loadConfig() {
     btnAnims[2][i] = doc[String(i+1+30)].as<String>();
   }
   functionBtn = doc["functionBtn"].as<int>();
+  cycleSetBtn = doc["cycleSetBtn"].as<int>();
   sleepTime = doc["sleepTime"].as<int>();
   wifiName = doc["wifiName"].as<String>();
   wifiPass = doc["wifiPass"].as<String>();
@@ -176,6 +177,7 @@ bool saveConfig() {
     doc[String(i+1+30)] = btnAnims[2][i];
   }
   doc["functionBtn"] = functionBtn;
+  doc["cycleSetBtn"] = cycleSetBtn;
   doc["sleepTime"] = sleepTime;
   doc["wifiName"] = wifiName;
   doc["wifiPass"] = wifiPass;
@@ -199,6 +201,7 @@ void setDefault() {
     btnAnims[2][i] = "default";
   }
   functionBtn = -1;
+  cycleSetBtn = -1;
   sleepTime = 600;
   wifiName = "ProtoRemote";
   wifiPass = "Proto1234";
@@ -260,6 +263,14 @@ void startWiFiWeb() {
         functionBtn = temp-1;
       } else {
         functionBtn = -1;
+      }
+    }
+    if(request->hasParam("cycleSetBtn")) {
+      int temp = request->getParam("cycleSetBtn")->value().toInt();
+      if(temp < 8 && temp > 0) {
+        cycleSetBtn = temp-1;
+      } else {
+        cycleSetBtn = -1;
       }
     }
     if(request->hasParam("sleepTime"))
@@ -381,7 +392,12 @@ void loop() {
       if(buttonArray[i].isReleased()) {
         long pressDuration = millis() - btnPressTime[i];
         if(pressDuration < BTNTIME) { //short press
-          if(i == functionBtn) { //if function buttton -> rgb
+          if(i == cycleSetBtn) { //if cycle button -> cycle animation set
+            if(animSet==2) {animSet=0;} else {animSet++;}
+            Serial.println("[I] Animation set to: "+String(animSet));
+            pRemoteCharacteristic->writeValue(";set"+String(animSet));
+            Serial.println("[I] BT: Sent: ;set"+String(animSet));
+          } else if(i == functionBtn) { //if function buttton -> rgb
             pRemoteCharacteristic->writeValue(";rgb");
             Serial.println("[I] BT: Sent: ;rgb");
           } else { //if not rgb button -> send anim

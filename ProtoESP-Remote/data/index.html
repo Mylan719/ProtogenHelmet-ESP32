@@ -48,8 +48,10 @@
             <select id="27" name="27"></select>
             <select id="37" name="37"></select>
             
-            <label for="functionBtn">Function button <sup onclick="alert('Select a button which will change RGB modes with short press and animation sets with long press.')">&#9432;</sup></label>
+            <label for="functionBtn">RGB function button <sup onclick="alert('Select a button which will change RGB modes with short press.')">&#9432;</sup></label>
             <select id="functionBtn" name="functionBtn"><option>None</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+            <label for="cycleSetBtn">Cycle set button <sup onclick="alert('Select a button which will cycle animation sets with short press.')">&#9432;</sup></label>
+            <select id="cycleSetBtn" name="cycleSetBtn"><option>None</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
             
             <label for="BLE" onclick="alert('Values show after 6s of the page being loaded')">Proto BLE name</label>
             <select id="BLE" name="BLE"></select>
@@ -238,6 +240,11 @@
           document.getElementsByName("functionBtn")[0].value = "None";
         } else {
           document.getElementsByName("functionBtn")[0].value = obj.functionBtn+1;
+        }
+        if(obj.cycleSetBtn == -1) {
+          document.getElementsByName("cycleSetBtn")[0].value = "None";
+        } else {
+          document.getElementsByName("cycleSetBtn")[0].value = obj.cycleSetBtn+1;
         }
         document.getElementsByName("sleepTime")[0].value = obj.sleepTime;
         document.getElementsByName("wifiName")[0].value = obj.wifiName;
